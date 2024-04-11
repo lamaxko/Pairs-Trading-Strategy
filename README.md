@@ -4,8 +4,8 @@ This repository is dedicated to the implementation and backtesting of Pairs Trad
 
 ## Strategies
 
-- **Distance Method(Finished)**: A statistical arbitrage strategy that selects pairs with a high degree of historical price convergence.
-- **Cointegration Method(Finished)**: Identifies pairs of securities whose prices are typically moving together, implying a long-run equilibrium.
+- **Distance Method (Finished)**: A statistical arbitrage strategy that selects pairs with a high degree of historical price convergence.
+- **Cointegration Method (Finished)**: Identifies pairs of securities whose prices are typically moving together, implying a long-run equilibrium.
 - **Copulas Method (TBD)**: A method to be developed that will focus on capturing the dependencies between the movements of pairs.
 
 ## Visualization Notebooks
