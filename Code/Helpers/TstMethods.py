@@ -26,6 +26,15 @@ def dm_get_signals(train_data, test_data):
     return all_pair_signals
 
 def coint_get_signals(train_data, test_data):
+    """Get trading signals for pairs based on the cointegration method.
+
+    Args:
+        train_data (DataFrame): A DataFrame containing the training data.
+        test_data (DataFrame): A DataFrame containing the testing data.
+
+    Returns:
+        DataFrame: A DataFrame containing the trading signals for the pairs.
+    """
     # First, clean the data by filling or dropping NaNs/Infs
     train_data.replace([np.inf, -np.inf], np.nan, inplace=True)
     test_data.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -53,6 +62,14 @@ def coint_get_signals(train_data, test_data):
     return all_pair_signals
 
 def copula_get_signals(train_data, test_data):
+    """Get trading signals for pairs based on the copula method.
 
-    
-    return
+    Args:
+        train_data (DataFrame): A DataFrame containing the training data.
+        test_data (DataFrame): A DataFrame containing the testing data.
+
+    Returns:
+        DataFrame: A DataFrame containing the trading signals for the pairs.
+    """
+
+    raise NotImplementedError("Copula method not implemented yet.")
