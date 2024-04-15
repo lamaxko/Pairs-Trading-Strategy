@@ -1,19 +1,17 @@
 # Pairs Trading Strategy
 
-This repository is dedicated to the implementation and backtesting of Pairs Trading Strategies. It includes the Distance Method, Cointegration Method, and the upcoming Copulas Method. The aim is to provide a comprehensive suite for analyzing and visualizing pairs trading opportunities and their performance over time.
+This repository implements and backtests various Pairs Trading Strategies, including the Distance, Cointegration, and Copulas Methods. It serves as a complete toolkit for analyzing and visualizing pairs trading dynamics and their historical performance.
 
-## Strategies
+## Installation
 
-- **Distance Method (Finished)**: A statistical arbitrage strategy that selects pairs with a high degree of historical price convergence.
-- **Cointegration Method (Finished)**: Identifies pairs of securities whose prices are typically moving together, implying a long-run equilibrium.
-- **Copulas Method (TBD)**: A method to be developed that will focus on capturing the dependencies between the movements of pairs.
+pip install -r requirements.txt
 
-## Visualization Notebooks
+## Visualization Notebooks inside the Code folder
 
 The repository includes Jupyter notebooks for a detailed visualization of the trading strategies:
 
 - `VisCointegrationMethod.ipynb`: Visualization of the Cointegration Method.
-- `VisCopulasMethod.ipynb` (In Progress): Visualization of the Copulas Method.
+- `VisCopulasMethod.ipynb`: Visualization of the Copulas Method.
 - `VisDistanceMethod.ipynb`: Visualization of the Distance Method.
 
 ## Helper Functions
@@ -22,12 +20,12 @@ Helper functions are organized in the `Helpers` directory:
 
 - `FunctHelpers.py`: Contains utility functions for calculating values and metrics used in the various methods.
 - `PlotHelpers.py`: Aids in plotting the outputs within the visualization notebooks.
+- `TstMethods.py`: Is a implementation of the three methods in a python file without the visualization so that it can be used in the backtest.
 
-## Backtesting
+## Backtesting (IN PROGRESS NOT FINISHED)
 
-For evaluation purposes, `EvalBacktest.ipynb` is included which uses the functions from `TstMethods.py`. This is a set of backtests to assess the performance of the Distance, Cointegration, and Copulas Methods in a historical context. It tests for multiple overlapping periods with a 12 month callibration period and a 6 month traiding period.
+- `EvalBacktest.ipynb` is the visualization of Backtest which uses the functions from `TstMethods.py`. This is a set of backtests to assess the performance of the Distance, Cointegration, and Copulas Methods in a historical context. It tests for multiple overlapping periods with a 12 month callibration period and a 6 month traiding period.
 
-The backtesting process is yet to be completed and will be documented accordingly once finalized.
 
 ---
 
