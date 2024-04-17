@@ -15,7 +15,7 @@ pip install -r requirements.txt
 
 Detailed visualizations of the trading strategies are provided in Jupyter notebooks located in the root directory:
 
-- `00_EvalBacktest.ipynb`: Evaluation of backtest results for the strategies.
+- `00_EvalBacktest.ipynb`: Evaluation of backtest results for the strategies (In PROGRESS).
 - `01_VisDistanceMethod.ipynb`: Visualization of the Distance Method.
 - `02_VisCointegrationMethod.ipynb`: Visualization of the Cointegration Method.
 - `03_VisCopulasMethod.ipynb`: Visualization of the Copulas Method.
@@ -36,12 +36,6 @@ The repository provides helper functions organized in the `Helpers` directory:
 - `DataHelpers.py`: Functions to handle and manipulate data.
 - `ModuleHelpers.py`: General utility functions that support various aspects of the strategies.
 - `PlotHelpers.py`: Functions that assist in plotting the outputs within the visualization notebooks.
-
-## Backtesting (IN PROGRESS NOT FINISHED)
-
-Backtesting evaluates the performance of the three Methods over multiple overlapping periods (12-month calibration and 6-month trading period):
-
-- `EvalBacktest.ipynb`: Notebook that utilizes the functions from the `Methods` folder to perform backtesting.
 
 ---
 
