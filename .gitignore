@@ -1,9 +1,3 @@
-# Ignore macOS .DS_Store files
 .DS_Store
-
-# Ignore .gitattributes file
 .gitattributes
-
-# Ignore __pycache__ directory
 __pycache__/
-

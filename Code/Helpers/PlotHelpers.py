@@ -1,8 +1,5 @@
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import yfinance.shared as shared
+from Helpers.ModuleHelpers import *
+from Helpers.DataHelpers import *
 
 def plot_min_ssd_pairs(pairs, data):
     """
@@ -17,6 +14,9 @@ def plot_min_ssd_pairs(pairs, data):
     Note:
         The function creates a 5x4 subplot grid, so it expects at least 20 pairs in the `pairs` list.
     """
+
+    data = calculate_cumulative_returns(data)
+
     fig, axs = plt.subplots(5, 4, figsize=(20, 20))
 
     for i in range(5):
@@ -35,6 +35,50 @@ def plot_min_ssd_pairs(pairs, data):
             
             ax.tick_params(axis='x', rotation=45)
 
+            ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_spread_dm(pairs: list, data: pd.DataFrame, dev_train_spread: list, threshold_dev: int):
+    """
+    Visualizes the spread between selected stock pairs over time and includes upper and lower threshold lines indicating 
+    when the spread exceeds one historical standard deviation.
+    Args:
+        pairs (list): A list of tuples, each containing the names of two stocks to be plotted.
+        data (DataFrame): The dataset with cumulative returns for each stock, with stocks as columns.
+        dev_train_spread (list): List of historical standard deviations for the spreads of each pair.
+        threshold_dev (int): The number of standard deviations to set as the threshold.
+
+    Note:
+        The function creates a 5x4 subplot grid, so it expects at least 20 pairs in the `pairs` list.
+    """
+    data = calculate_cumulative_returns(data)
+
+    fig, axs = plt.subplots(5, 4, figsize=(20, 20))
+
+    for i in range(5):
+        for j in range(4):
+            ax = axs[i, j]
+            pair_index = i*4+j
+            stock1, stock2 = pairs[pair_index]
+            
+            # Calculate spread and thresholds
+            spread = data[stock1] - data[stock2]
+            upper_threshold = dev_train_spread[pair_index] * threshold_dev
+            lower_threshold = -upper_threshold
+            
+            # Plotting the spread and thresholds
+            ax.plot(data.index, spread, label='Spread', color='blue')
+            ax.axhline(y=upper_threshold, color='red', linestyle='--', label='Upper Threshold')
+            ax.axhline(y=lower_threshold, color='green', linestyle='--', label='Lower Threshold')
+            
+            # Customizing the plot
+            ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey')
+            ax.minorticks_on()
+            ax.grid(True, which='minor', linestyle=':', linewidth=0.5, color='lightgrey')
+            ax.set_title(f'Pair {pair_index + 1}: {stock1} vs {stock2}', fontsize=16, fontweight='bold', color='navy')
+            ax.tick_params(axis='x', rotation=45)
             ax.legend()
 
     plt.tight_layout()
@@ -223,7 +267,8 @@ def plot_cumulative_payoff_portfolio_weighted(test_data, test_signals, pairs, we
 def plot_spread_pairs(spread_pairs):
     """
     Visualizes the spread of selected stock pairs to illustrate their differences over time.
-    Each subplot will show the spread for one pair with a red dotted line indicating the mean of the spread.
+    Each subplot will show the spread for one pair with a red dotted line indicating the mean of the spread,
+    centered in the middle of the y-axis.
     The function generates a grid of line plots in a 5x4 format.
 
     Args:
@@ -240,19 +285,25 @@ def plot_spread_pairs(spread_pairs):
             spread_index = i * 4 + j
             if spread_index < len(spread_pairs):
                 spread = spread_pairs[spread_index]
+                max_abs_spread = np.max(np.abs(spread))  # Find the maximum absolute value for setting y-limits
+
                 ax.plot(spread, label='Spread', color='blue')
                 ax.axhline(spread.mean(), color='red', linestyle='--', label='Mean')
+                
+                ax.set_ylim(-max_abs_spread, max_abs_spread)  # Set y-limits to be symmetrical around the mean line
+                
                 ax.set_title(f'Pair {spread_index + 1}', fontsize=16, fontweight='bold', color='navy')
                 
                 ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey')
                 ax.minorticks_on()
                 ax.grid(True, which='minor', linestyle=':', linewidth=0.5, color='lightgrey')
                 
-                ax.tick_params(axis='x', rotation=45) 
+                ax.tick_params(axis='x', rotation=45)
                 ax.legend()
 
     plt.tight_layout()
     plt.show()
+
 
 def plot_zscores(signals, pairs):
     """
@@ -263,37 +314,47 @@ def plot_zscores(signals, pairs):
         signals (DataFrame): A DataFrame containing the z-scores and thresholds for multiple stock pairs.
         pairs (list): A list of tuples, each representing a pair of stock names.
     """
-    num_pairs = len(pairs)  # Determine the number of pairs
+    num_pairs = len(pairs)
     rows, cols = 5, 4
-    fig, axs = plt.subplots(rows, cols, figsize=(20, 20))  # Create a 5x4 grid of plots
-    pair_idx = 0
+    fig, axs = plt.subplots(rows, cols, figsize=(20, 20))
+
+    # Find the global min and max z-scores to set consistent y-limits for all subplots
+    global_z_min = signals[[col for col in signals if 'zscore' in col]].min().min()
+    global_z_max = signals[[col for col in signals if 'zscore' in col]].max().max()
+    global_limit = max(abs(global_z_min), abs(global_z_max))
 
     for i in range(rows):
         for j in range(cols):
             ax = axs[i, j]
-            if pair_idx < num_pairs:
-                stock1, stock2 = pairs[pair_idx]
+            if i * cols + j < num_pairs:
+                stock1, stock2 = pairs[i * cols + j]
                 pair_key = f'{stock1}_{stock2}'
 
                 zscore_col = f'{pair_key}_zscore'
                 upper_limit_col = f'{pair_key}_z_upper_limit'
                 lower_limit_col = f'{pair_key}_z_lower_limit'
 
-                # Plot z-score
-                if zscore_col in signals.columns:
-                    ax.plot(signals.index, signals[zscore_col], label='Zscore', color='blue')
-                    # Plot thresholds
-                    ax.axhline(signals[upper_limit_col].mean(), color='red', linestyle='--', label='Upper Threshold')
-                    ax.axhline(signals[lower_limit_col].mean(), color='green', linestyle='--', label='Lower Threshold')
-                    ax.set_title(f'Pair {stock1} vs {stock2}', fontsize=16, fontweight='bold', color='navy')
+                # Plot z-scores
+                ax.plot(signals.index, signals[zscore_col], label='Z-Score', color='blue')
 
-                    ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey')
-                    ax.minorticks_on()
-                    ax.grid(True, which='minor', linestyle=':', linewidth=0.5, color='lightgrey')
-                    
-                    ax.tick_params(axis='x', rotation=45)  # Rotate date labels if needed
-                    ax.legend()
-                pair_idx += 1
+                # Plot the thresholds
+                mean_upper = signals[upper_limit_col].mean()
+                mean_lower = signals[lower_limit_col].mean()
 
-    plt.tight_layout()  # Adjust layout to make room for all subplots
+                ax.axhline(mean_upper, color='red', linestyle='--', label='Upper Threshold')
+                ax.axhline(mean_lower, color='green', linestyle='--', label='Lower Threshold')
+
+                # Set consistent y-limits based on global max/min z-score
+                ax.set_ylim(-global_limit, global_limit)
+
+                ax.set_title(f'Pair {i * cols + j + 1}: {stock1} vs {stock2}', fontsize=16, fontweight='bold', color='navy')
+                
+                ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey')
+                ax.minorticks_on()
+                ax.grid(True, which='minor', linestyle=':', linewidth=0.5, color='lightgrey')
+                
+                ax.tick_params(axis='x', rotation=45)
+                ax.legend()
+
+    plt.tight_layout()
     plt.show()

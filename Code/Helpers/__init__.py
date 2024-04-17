@@ -1,3 +1,4 @@
-from .FunctHelpers import *
+from .DataHelpers import *
+from .BacktestHelpers import *
 from .PlotHelpers import *
-from .TstMethods import *
+from .ModuleHelpers import *
