@@ -1,6 +1,7 @@
+
 # Pairs Trading Strategy
 
-This repository implements and backtest Distance, Cointegration, and Copulas Pairs Trading Strategies.
+This repository implements and backtests Distance, Cointegration, and Copulas Pairs Trading Strategies. The strategies are separated into distinct methods, each located in its respective folder within the `Methods` directory.
 
 ## Installation
 
@@ -12,24 +13,36 @@ pip install -r requirements.txt
 
 ## Visualization Notebooks
 
-Detailed visualizations of the trading strategies in Jupyter notebooks located in the `Code` folder:
+Detailed visualizations of the trading strategies are provided in Jupyter notebooks located in the root directory:
 
-- `VisCointegrationMethod.ipynb`: Visualization of the Cointegration Method.
-- `VisCopulasMethod.ipynb`: Visualization of the Copulas Method.
-- `VisDistanceMethod.ipynb`: Visualization of the Distance Method.
+- `00_EvalBacktest.ipynb`: Evaluation of backtest results for the strategies.
+- `01_VisDistanceMethod.ipynb`: Visualization of the Distance Method.
+- `02_VisCointegrationMethod.ipynb`: Visualization of the Cointegration Method.
+- `03_VisCopulasMethod.ipynb`: Visualization of the Copulas Method.
+
+## Methods
+
+Implementation of trading strategies:
+
+- `DistanceMethod.py`: Implements the Distance Method strategy.
+- `CointegrationMethod.py`: Implements the Cointegration Method strategy.
+- `CopulasMethod.py`: Implements the Copulas Method strategy.
 
 ## Helper Functions
 
 The repository provides helper functions organized in the `Helpers` directory:
 
-- `FunctHelpers.py`: Utility functions for calculating values and metrics used in various methods.
-- `PlotHelpers.py`: Assists in plotting the outputs within the visualization notebooks.
-- `TstMethods.py`: Implementation of the three methods in a Python file without visualization, used in backtesting.
+- `BacktestHelpers.py`: Functions specific to backtesting the strategies.
+- `DataHelpers.py`: Functions to handle and manipulate data.
+- `ModuleHelpers.py`: General utility functions that support various aspects of the strategies.
+- `PlotHelpers.py`: Functions that assist in plotting the outputs within the visualization notebooks.
 
 ## Backtesting (IN PROGRESS NOT FINISHED)
 
-- `EvalBacktest.ipynb`: Utilizes the functions from `TstMethods.py`. The backtest assesses the performance of the three Methods across multiple overlapping periods. (12-month calibration and a 6-month trading period)
+Backtesting evaluates the performance of the three Methods over multiple overlapping periods (12-month calibration and 6-month trading period):
+
+- `EvalBacktest.ipynb`: Notebook that utilizes the functions from the `Methods` folder to perform backtesting.
 
 ---
 
-**Note**: Project is under development and not finished
+**Note**: The project is under development and not all components are final.
