@@ -6,7 +6,7 @@ def adf_check_stationarity(data: pd.DataFrame) -> list[str]:
     I0_list = []
     for col in data.columns:
         try:
-            result = ts.adfuller(data[col].dropna())  # Ensure to drop NaNs
+            result = ts.adfuller(data[col].dropna(), regression='ct')  # Ensure to drop NaNs
             if result[1] < 0.1:  # P-value less than 5%
                 I0_list.append(col)
         except Exception as e:
@@ -162,7 +162,7 @@ def get_trading_signals_coint(test_data, pairs, train_data, threshold):
                 pair_key = f'{stock1}_{stock2}'
                 data_dict = {
                     f'{pair_key}_signal1': signals['signal1'],
-                    f'{pair_key}_positions1': signals['positions1'],
+                    f'{pair_key}_positions1': signals['positions1'], # positions1 is the position for stock1
                     f'{pair_key}_signal2': signals['signal2'],
                     f'{pair_key}_positions2': signals['positions2'],
                     f'{pair_key}_spread': signals['spread'],
