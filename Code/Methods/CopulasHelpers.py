@@ -320,7 +320,7 @@ def get_trading_signals_copula(test_data, pairs, copula_results, best_fit_distri
 
 
 
-def copula_get_signals_backtest(train_data, test_data):
+def copula_get_signals_backtest(train_data, test_data, threshold):
     
     # Create copy of data to avoid modifying original data
     train_data = train_data.copy()
@@ -332,10 +332,20 @@ def copula_get_signals_backtest(train_data, test_data):
     ssd_train = find_ssd(train_data)
     pairs = select_lowest_ssd_pairs(ssd_train, train_data)
 
+    # Cor conditional probabilities using going boht ways
+    flipped_pairs = [(pair[1], pair[0]) for pair in pairs]
+
     best_fits = fit_best_distribution_for_pairs(train_data, pairs)
+    best_fits_flipped_pairs = fit_best_distribution_for_pairs(train_data, flipped_pairs)
+
     uniform_data = transform_to_uniform(train_data, best_fits)
+    uniform_data_flipped_pairs = transform_to_uniform(train_data, best_fits_flipped_pairs)
+
+    # Combine the uniform data for the pairs and the flipped pairs again
+    uniform_data = {**uniform_data, **uniform_data_flipped_pairs}
+
     copula_results = fit_best_copulas_to_pairs(uniform_data)
 
-    signals = get_trading_signals_copula(test_data, pairs, copula_results) 
+    signals = get_trading_signals_copula(test_data, pairs, copula_results, best_fits, threshold=threshold)
 
     return signals, pairs
