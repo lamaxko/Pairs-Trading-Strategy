@@ -317,9 +317,6 @@ def get_trading_signals_copula(test_data, pairs, copula_results, best_fit_distri
     return all_signals
 
 
-
-
-
 def copula_get_signals_backtest(train_data, test_data, threshold):
     
     # Create copy of data to avoid modifying original data
