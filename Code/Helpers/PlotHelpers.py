@@ -305,56 +305,48 @@ def plot_spread_pairs(spread_pairs):
     plt.show()
 
 
-def plot_zscores(signals, pairs):
+def plot_spread_dm(pairs: list, data: pd.DataFrame, dev_train_spread: list, threshold_dev: int):
     """
-    Visualizes the z-scores, upper, and lower thresholds of selected stock pairs to illustrate their normalized spreads over time.
-    The function generates a grid of line plots in a 5x4 format, each representing a different pair.
-
-    Args:
-        signals (DataFrame): A DataFrame containing the z-scores and thresholds for multiple stock pairs.
-        pairs (list): A list of tuples, each representing a pair of stock names.
+    Visualizes the spread between selected stock pairs over time and includes upper and lower threshold lines indicating 
+    when the spread exceeds one historical standard deviation.
     """
-    num_pairs = len(pairs)
-    rows, cols = 5, 4
-    fig, axs = plt.subplots(rows, cols, figsize=(20, 20))
+    data = calculate_cumulative_returns(data)
+    
+    # Pre-calculate global min and max for spread consistency
+    spreads = [data[pair[0]] - data[pair[1]] for pair in pairs]
+    global_spread_max = max(spread.max() for spread in spreads)
+    global_spread_min = min(spread.min() for spread in spreads)
+    global_limit = max(abs(global_spread_max), abs(global_spread_min))
+    
+    fig, axs = plt.subplots(5, 4, figsize=(20, 20))
 
-    # Find the global min and max z-scores to set consistent y-limits for all subplots
-    global_z_min = signals[[col for col in signals if 'zscore' in col]].min().min()
-    global_z_max = signals[[col for col in signals if 'zscore' in col]].max().max()
-    global_limit = max(abs(global_z_min), abs(global_z_max))
-
-    for i in range(rows):
-        for j in range(cols):
+    for i in range(5):
+        for j in range(4):
             ax = axs[i, j]
-            if i * cols + j < num_pairs:
-                stock1, stock2 = pairs[i * cols + j]
-                pair_key = f'{stock1}_{stock2}'
-
-                zscore_col = f'{pair_key}_zscore'
-                upper_limit_col = f'{pair_key}_z_upper_limit'
-                lower_limit_col = f'{pair_key}_z_lower_limit'
-
-                # Plot z-scores
-                ax.plot(signals.index, signals[zscore_col], label='Z-Score', color='blue')
-
-                # Plot the thresholds
-                mean_upper = signals[upper_limit_col].mean()
-                mean_lower = signals[lower_limit_col].mean()
-
-                ax.axhline(mean_upper, color='red', linestyle='--', label='Upper Threshold')
-                ax.axhline(mean_lower, color='green', linestyle='--', label='Lower Threshold')
-
-                # Set consistent y-limits based on global max/min z-score
-                ax.set_ylim(-global_limit, global_limit)
-
-                ax.set_title(f'Pair {i * cols + j + 1}: {stock1} vs {stock2}', fontsize=16, fontweight='bold', color='navy')
-                
-                ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey')
-                ax.minorticks_on()
-                ax.grid(True, which='minor', linestyle=':', linewidth=0.5, color='lightgrey')
-                
-                ax.tick_params(axis='x', rotation=45)
-                ax.legend()
+            pair_index = i*4+j
+            stock1, stock2 = pairs[pair_index]
+            
+            # Calculate spread and thresholds
+            spread = data[stock1] - data[stock2]
+            upper_threshold = dev_train_spread[pair_index] * threshold_dev
+            lower_threshold = -upper_threshold
+            
+            # Plotting the spread and thresholds
+            ax.plot(data.index, spread, label='Spread', color='blue')
+            ax.axhline(y=upper_threshold, color='red', linestyle='--', label='Upper Threshold')
+            ax.axhline(y=lower_threshold, color='green', linestyle='--', label='Lower Threshold')
+            
+            # Set consistent y-limits based on global max/min spread
+            ax.set_ylim(-global_limit, global_limit)
+            
+            # Customizing the plot
+            ax.grid(True, which='major', linestyle='--', linewidth=0.5, color='grey')
+            ax.minorticks_on()
+            ax.grid(True, which='minor', linestyle=':', linewidth=0.5, color='lightgrey')
+            ax.set_title(f'Pair {pair_index + 1}: {stock1} vs {stock2}', fontsize=16, fontweight='bold', color='navy')
+            ax.tick_params(axis='x', rotation=45)
+            ax.legend()
 
     plt.tight_layout()
     plt.show()
+
