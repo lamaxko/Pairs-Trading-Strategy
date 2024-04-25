@@ -1,5 +1,6 @@
 from Helpers.ModuleHelpers import *
 from Methods.DmHelpers import *
+from Helpers.DataHelpers import *
 
 import pandas as pd
 import numpy as np
@@ -11,6 +12,55 @@ from scipy.stats import t
 from rpy2.robjects.packages import importr
 from rpy2.robjects import numpy2ri
 from rpy2.rinterface_lib.embedded import RRuntimeError
+
+def find_ssd(data: pd.DataFrame) -> np.ndarray:
+    """
+    Computes the sum of squared differences (SSD) between the cumulative returns of each pair of stocks in a dataset, 
+    useful for analyzing variance among stocks. It generates an upper triangular matrix where each entry (i, j) 
+    represents the SSD between stocks i and j.
+
+    Args:
+        data (DataFrame): Cumulative returns for each stock, with stocks as columns.
+
+    Returns:
+        ndarray: Upper triangular matrix of SSD values among stocks.
+    """
+    cum_data = calculate_cumulative_returns(data)
+
+    n = len(cum_data.columns)
+    ssd = np.zeros((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            ssd[i, j] = np.sum((cum_data.iloc[:, i] - cum_data.iloc[:, j])**2)
+            
+    return ssd
+
+def select_lowest_ssd_pairs(ssd: np.ndarray, data: pd.DataFrame, num_pairs=20) -> list:
+    """
+    Identifies and selects the 20 pairs of stocks with the lowest sum of squared differences (SSD) in their 
+    cumulative returns from a given SSD matrix. It helps in identifying pairs of stocks that move similarly.
+
+    Args:
+        ssd (ndarray): A matrix of SSD values between each pair of stocks.
+        data (DataFrame): The dataset with stocks as columns, used to map indices to stock names.
+
+    Returns:
+        list: A list of tuples, where each tuple contains the names of a pair of stocks with the lowest SSD.
+    """
+    
+    cum_data = calculate_cumulative_returns(data)
+
+    pairs = []
+    ssd_copy = ssd.copy()
+
+    for _ in range(num_pairs):
+        min_ssd = np.min(ssd_copy[np.nonzero(ssd_copy)])
+        idx = np.where(ssd_copy == min_ssd)
+        pair = (cum_data.columns[idx[0][0]], cum_data.columns[idx[1][0]])
+        pairs.append(pair)
+        ssd_copy[idx[0][0], idx[1][0]] = np.inf
+    
+    return pairs
 
 def fit_distributions(stock_returns):
     """Fit distributions to the stock returns and select the best fit based on AIC and BIC.
@@ -70,7 +120,7 @@ def fit_best_distribution_for_pairs(train_data, pairs):
 
 def transform_to_uniform(train_data, best_fit_distributions):
     """Transform the stock returns to uniform margins using the best fit distributions.
-
+        
     Args:
         train_data (pd.DataFrame): Train data.
         best_fit_distributions (dict): Best fit distributions for the pairs.
@@ -104,6 +154,7 @@ def transform_to_uniform(train_data, best_fit_distributions):
             stock_returns = train_data[stock].pct_change().fillna(0)
             #stock_returns = train_data[stock].pct_change().dropna()
 
+            # We the calcluate the CDF values for this we use the 
             cdf_values = dist.cdf(stock_returns, *params)
             uniform_margins[pair][stock] = cdf_values
 
@@ -111,7 +162,7 @@ def transform_to_uniform(train_data, best_fit_distributions):
 
 def fit_best_copulas_to_pairs(uniform_data):
     """Fit the best fitting copulas based on BIC to the transformed data.
-
+        
     Args:
         uniform_data (dict): Uniform margins.
 
@@ -273,7 +324,7 @@ def get_trading_signals_copula(test_data, pairs, copula_results, best_fit_distri
         copula_type = copula_results[pair]['Best Copula']
         uniform_data_pair = uniform_data[pair]
 
-        # Evaluate conditional probabilities using copula
+        # Get probabilities based on copula type
         if copula_type == 'StudentT':
             h1 = get_probabilities_studentt(uniform_data_pair, pair, copula_results)
             h2 = get_probabilities_studentt(uniform_data_pair, pair[::-1], copula_results)
@@ -284,8 +335,7 @@ def get_trading_signals_copula(test_data, pairs, copula_results, best_fit_distri
             h1 = get_probabilities_clayton(uniform_data_pair, pair, copula_results)
             h2 = get_probabilities_clayton(uniform_data_pair, pair[::-1], copula_results)
 
-
-       # Compute daily mispricing indices
+        # Compute daily mispricing indices
         m1 = h1 - 0.5
         m2 = h2 - 0.5
         
@@ -293,12 +343,16 @@ def get_trading_signals_copula(test_data, pairs, copula_results, best_fit_distri
         M1 = np.cumsum(m1)
         M2 = np.cumsum(m2)
 
-        # Convert numpy arrays to pandas Series to use the .diff() method
-        signal1 = pd.Series(np.where((M1 > threshold) & (M2 < -threshold), 1, np.where((M1 < -threshold) & (M2 > threshold), -1, 0)), index=test_data.index)
-        position1 = signal1.diff()
-        
+        # Generate signals based on threshold
+        signal1 = pd.Series(np.where((M1 > threshold) & (M2 < -threshold), 1, 
+                                     np.where((M1 < -threshold) & (M2 > threshold), -1, 0)),
+                            index=test_data.index)
         signal2 = pd.Series(-signal1.values, index=test_data.index)
-        position2 = signal2.diff()
+
+        # Calculate positions using a mask where positions should be held
+        position_mask = ((np.abs(M1) > threshold) | (np.abs(M2) > threshold))
+        position1 = signal1.where(position_mask, 0).ffill().fillna(0)
+        position2 = signal2.where(position_mask, 0).ffill().fillna(0)
 
         # Initialize a DataFrame for the signals
         signals = pd.DataFrame({
@@ -308,6 +362,8 @@ def get_trading_signals_copula(test_data, pairs, copula_results, best_fit_distri
             f'{stock1}_{stock2}_positions2': position2,
             f'{stock1}_{stock2}_M1': pd.Series(M1, index=test_data.index),
             f'{stock1}_{stock2}_M2': pd.Series(M2, index=test_data.index),
+            f'{stock1}_{stock2}_h1': pd.Series(h1, index=test_data.index),
+            f'{stock1}_{stock2}_h2': pd.Series(h2, index=test_data.index)
         })
 
         results.append(signals)

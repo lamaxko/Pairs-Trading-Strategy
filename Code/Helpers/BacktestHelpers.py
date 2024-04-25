@@ -5,6 +5,7 @@ from Methods.DmHelpers import *
 from Methods.CointHelpers import *
 from Methods.CopulasHelpers import *
 
+
 from Helpers.DataHelpers import *
 from Helpers.PlotHelpers import *
 from Helpers.ModuleHelpers import *
@@ -74,48 +75,6 @@ def print_backtest_info(i, start_date, end_date):
     print('-------------------------------------------')
     return
 
-def run_rolling_window_backtest(data, start_date, end_date, END_DATE, dm_threshold, coint_threshold, copula_threshold):
-
-    dm_backtest_results = pd.DataFrame()
-    coint_backtest_results = pd.DataFrame()
-    copula_backtest_results = pd.DataFrame()
-
-    counter = 0
-
-    while end_date < END_DATE:
-        # Split data into training and testing
-        train_start, train_end, test_start, test_end = train_test_dates(start_date)
-        train_data, test_data = train_test_split(data, train_start, train_end, test_start, test_end)
-        
-        # Run backtests for each strategy
-        dm_signals, dm_pairs = dm_get_signals_backtest(train_data, test_data, threshold=dm_threshold) # was 1.5
-        dm_signals_test = dm_signals.loc[test_start:test_end]
-        coint_signals, coint_pairs = coint_get_signals_backtest(train_data, test_data, threshold=coint_threshold) 
-        coint_signals_test = coint_signals.loc[test_start:test_end]
-        copula_signals, copula_pairs = copula_get_signals_backtest(train_data, test_data, threshold=copula_threshold)
-        copula_signals_test = copula_signals.loc[test_start:test_end]
-
-        # Helper function to process each set of signals
-        def process_signals(signals, results_df, label):
-            tuples = [(label, col) for col in signals.columns]
-            multi_index = pd.MultiIndex.from_tuples(tuples, names=['Period', 'Signal'])
-            period_signals = pd.DataFrame(signals.values, index=signals.index, columns=multi_index)
-            return pd.concat([results_df, period_signals], axis=1)
-
-        # Format the period label for the big column
-        period_label = f"{start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}"
-
-        # Process each method's signals and update the respective DataFrame
-        dm_backtest_results = process_signals(dm_signals_test, dm_backtest_results, period_label)
-        coint_backtest_results = process_signals(coint_signals_test, coint_backtest_results, period_label)
-        copula_backtest_results = process_signals(copula_signals_test, copula_backtest_results, period_label)
-
-        # Update for next period
-        print_backtest_info(counter, start_date, end_date)
-        start_date, end_date = update_dates(start_date)
-        counter += 1
-
-    return dm_backtest_results, coint_backtest_results, copula_backtest_results
 
 
 def get_daily_returns_backtest(backtesting_results: pd.DataFrame, data: pd.DataFrame) -> pd.DataFrame:
@@ -180,7 +139,19 @@ def calculate_cumulative_return(average_returns: pd.Series) -> pd.Series:
 
     return cumulative_returns
 
+
 def get_daily_returns_backtest_transaction_costs(backtesting_results: pd.DataFrame, data: pd.DataFrame, transaction_cost_rate=0.0009) -> pd.DataFrame:
+    """
+    Calculate daily returns for the price data and adjust for transaction costs when positions open or close.
+    
+    Args:
+        backtesting_results (DataFrame): DataFrame containing positions data for each pair and period.
+        data (DataFrame): DataFrame containing daily price data for the stocks.
+        transaction_cost_rate (float): The transaction cost expressed as a percentage of the trade.
+
+    Returns:
+        DataFrame: A DataFrame containing the daily returns adjusted for transaction costs.
+    """
     # Calculate daily returns for the price data
     data_daily_returns = data.pct_change()
 
@@ -203,15 +174,22 @@ def get_daily_returns_backtest_transaction_costs(backtesting_results: pd.DataFra
                     positions = backtesting_results[period][column].shift(1)
                     daily_returns = data_daily_returns[stock] * positions
 
-                    # Identify transitions from 0 to 1 which indicate a new position is taken
-                    position_changes = (positions.diff() == 1) & (positions.shift(-1) == 0)
-                    
+                    # Identify transitions for position changes: from 0 to 1/-1 (open) and from 1/-1 to 0 (close)
+                    position_changes_open = (positions.diff() != 0) & (positions != 0)
+                    position_changes_close = (positions.diff() != 0) & (positions.shift(1) != 0)
+
                     # Ensure position_changes aligns with the index of daily_returns
-                    position_changes = position_changes.reindex(daily_returns.index, fill_value=False)
-                    
-                    # Apply transaction cost on the days where a new position is opened
-                    daily_returns[position_changes] -= transaction_cost_rate
-                    
+                    position_changes_open = position_changes_open.reindex(daily_returns.index, fill_value=False)
+                    position_changes_close = position_changes_close.reindex(daily_returns.index, fill_value=False)
+
+                    # Apply transaction cost on the days where positions are opened or closed
+                    daily_returns[position_changes_open] -= transaction_cost_rate
+                    daily_returns[position_changes_close] -= transaction_cost_rate
+
+                    # Additionally check for the end of the period to apply transaction costs if positions are still held
+                    if positions.iloc[-1] != 0:
+                        daily_returns.iloc[-1] -= transaction_cost_rate
+
                     daily_returns.name = f'{stock}_{period}_{position_type}'
                     returns_list.append(daily_returns)
 
@@ -222,3 +200,4 @@ def get_daily_returns_backtest_transaction_costs(backtesting_results: pd.DataFra
         backtest_daily_returns = pd.DataFrame()
 
     return backtest_daily_returns
+

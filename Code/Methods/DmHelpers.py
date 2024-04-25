@@ -82,20 +82,13 @@ def find_dev_spread(data: pd.DataFrame , pairs: list) -> list:
 def get_trading_signals_dm(test_data: pd.DataFrame, pairs: list, dev_train_spread: list, threshold_dev: int) -> pd.DataFrame:
     """
     Generate trading signals for pairs based on the distance method.
-
     Args:
         test_data (DataFrame): The test dataset containing price data for each stock.
         pairs (list): A list of tuples, each containing the names of two stocks to be used in the pair trading strategy.
-        train_std_dev (list): A list of standard deviation values corresponding to each pair in `pairs`.
-
+        dev_train_spread (list): A list of standard deviation values corresponding to each pair in `pairs`.
+        threshold_dev (int): Multiplier for the standard deviation to set divergence thresholds.
     Returns:
-        DataFrame: A DataFrame containing trading signals and positions for each pair of stocks. Each pair generates four
-                   columns: 'signal1' and 'signal2' for the trading signals of the first and second stock, respectively,
-                   and 'positions1' and 'positions2' for the corresponding position changes based on the signals.
-
-    Note:
-        This function rescales `test_data` prices for each stock to start at $1 for normalization, facilitating
-        comparison across different stocks and time periods.
+        DataFrame: A DataFrame containing trading signals and positions for each pair of stocks.
     """
 
     # Rescale test_data prices to start at $1 for normalization
@@ -104,27 +97,26 @@ def get_trading_signals_dm(test_data: pd.DataFrame, pairs: list, dev_train_sprea
     all_pair_signals = pd.DataFrame()
 
     for ((stock1, stock2), std_dev) in zip(pairs, dev_train_spread):
-        # Initialize a DataFrame to hold signals for the current pair
-        pair_signals = pd.DataFrame({
-            stock1: normalized_test_data[stock1],
-            stock2: normalized_test_data[stock2]
-        })
-        
         # Calculate the spread and set divergence threshold
-        spread = pair_signals[stock2] - pair_signals[stock1]
-        divergence_threshold = threshold_dev * std_dev  # Defined as 2 historical standard deviations
+        spread = normalized_test_data[stock2] - normalized_test_data[stock1]
+        divergence_threshold = threshold_dev * std_dev
         
         # Generate trading signals based on divergence from the threshold
-        pair_signals['signal1'] = np.select(
-            [spread.abs() > divergence_threshold],  # Condition for divergence
-            [np.where(spread > 0, -1, 1)],  # Determines the direction of the signal
-            default=0  # No signal if condition is not met
-        )
-        pair_signals['positions1'] = pair_signals['signal1'].diff()
+        signal = np.where(spread.abs() > divergence_threshold, np.where(spread > 0, -1, 1), 0)
 
-        # Inverse signals for the paired stock
-        pair_signals['signal2'] = -pair_signals['signal1']
-        pair_signals['positions2'] = pair_signals['signal2'].diff()
+        # Create a DataFrame to hold signals and positions for the current pair
+        pair_signals = pd.DataFrame({
+            'signal1': signal,
+            'signal2': -signal,
+        }, index=normalized_test_data.index)
+        
+        # Define positions: Maintain positions as long as signal is active, reset to 0 when signal is 0
+        pair_signals['positions1'] = pair_signals['signal1'].where(pair_signals['signal1'] != 0).ffill().fillna(0)
+        pair_signals['positions2'] = pair_signals['signal2'].where(pair_signals['signal2'] != 0).ffill().fillna(0)
+
+        # Handle case where signal returns within thresholds
+        pair_signals['positions1'] = np.where(pair_signals['signal1'] == 0, 0, pair_signals['positions1'])
+        pair_signals['positions2'] = np.where(pair_signals['signal2'] == 0, 0, pair_signals['positions2'])
 
         # Key for identifying signals in the final DataFrame
         pair_key = f'{stock1}_{stock2}'
@@ -132,10 +124,7 @@ def get_trading_signals_dm(test_data: pd.DataFrame, pairs: list, dev_train_sprea
         all_pair_signals[f'{pair_key}_positions1'] = pair_signals['positions1']
         all_pair_signals[f'{pair_key}_signal2'] = pair_signals['signal2']
         all_pair_signals[f'{pair_key}_positions2'] = pair_signals['positions2']
-        
-        # Remove NaN values that result from differencing
-        pair_signals.dropna(inplace=True)
-    
+
     return all_pair_signals
 
 

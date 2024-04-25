@@ -6,7 +6,7 @@ def adf_check_stationarity(data: pd.DataFrame) -> list[str]:
     I0_list = []
     for col in data.columns:
         try:
-            result = ts.adfuller(data[col].dropna(), regression='ct')  # Ensure to drop NaNs
+            result = ts.adfuller(data[col].dropna(), regression='ct')  # regression='ct' for constant and trend 
             if result[1] < 0.1:  # P-value less than 5%
                 I0_list.append(col)
         except Exception as e:
@@ -125,44 +125,42 @@ def get_trading_signals_coint(test_data, pairs, train_data, threshold):
         if stock1 in train_data.columns and stock2 in train_data.columns:
             # Fit OLS model on training data to get the hedge ratio
             model = sm.OLS(train_data[stock1], sm.add_constant(train_data[stock2])).fit()
-
-            # Correctly accessing model parameters using labels
             intercept = model.params['const']
             slope = model.params[stock2]
 
             # Use the hedge ratio to calculate the spread on test data
-            spread = test_data[stock2] - intercept - slope * test_data[stock1]
-            
+            spread = test_data[stock2] - (slope * test_data[stock1] + intercept)
+
             # Function to calculate z-score
             def zscore(series):
                 if series.std() != 0:
                     return (series - series.mean()) / series.std()
                 else:
-                    return pd.Series(index=series.index)  # Return an empty series
+                    return pd.Series(index=series.index)  # Return an empty series if std is zero
 
             signals = pd.DataFrame(index=test_data.index)
             signals['spread'] = spread
-            signals['zscore'] = zscore(spread.dropna())  # Normalize spread using zscore and handle NA
+            signals['zscore'] = zscore(spread.dropna())
 
-            std_shift = threshold  # Define standard deviation threshold shift
-
-            # Check if zscore calculation was successful
+            std_shift = threshold
             if not signals['zscore'].empty:
-                # Create the upper and lower thresholds using mean and standard deviation of z-score
                 signals['z upper limit'] = signals['zscore'].mean() + std_shift * signals['zscore'].std()
                 signals['z lower limit'] = signals['zscore'].mean() - std_shift * signals['zscore'].std()
 
-                # Generate signals based on the z-score exceeding these thresholds
-                signals['signal1'] = np.select([signals['zscore'] > signals['z upper limit'], signals['zscore'] < signals['z lower limit']], [1, -1], default=0)
-                signals['positions1'] = signals['signal1'].diff()
-                signals['signal2'] = -signals['signal1']
-                signals['positions2'] = signals['signal2'].diff()
+                # Generate signals based on z-score
+                signals['signal1'] = np.where(signals['zscore'] > signals['z upper limit'], 1, 
+                                              np.where(signals['zscore'] < signals['z lower limit'], -1, 0))
 
-                # Prepare data for concatenation with standardized column names
+                # Reset positions to zero when z-score is within the thresholds
+                signals['positions1'] = np.where((signals['zscore'] <= signals['z upper limit']) & (signals['zscore'] >= signals['z lower limit']), 0, signals['signal1'])
+
+                signals['signal2'] = -signals['signal1']
+                signals['positions2'] = -signals['positions1']
+
                 pair_key = f'{stock1}_{stock2}'
                 data_dict = {
                     f'{pair_key}_signal1': signals['signal1'],
-                    f'{pair_key}_positions1': signals['positions1'], # positions1 is the position for stock1
+                    f'{pair_key}_positions1': signals['positions1'],
                     f'{pair_key}_signal2': signals['signal2'],
                     f'{pair_key}_positions2': signals['positions2'],
                     f'{pair_key}_spread': signals['spread'],
